@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUESS - QR Code Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            display: grid;
+            place-items: center;
+            height: 100vh;
+            text-align: center;
+            padding: 10px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #start-camera {
+            background-color: #fff;
+            color: #000;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.6rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+            width: 100%;
+            max-width: 300px;
+            margin-top: -100px;
+        }
+
+        #start-camera:hover {
+            background-color: #444;
+            color: #fff;
+        }
+
+        #camera-container {
+            display: none;
+            width: 100%;
+            max-width: 600px;
+            position: relative;
+            margin-top: 20px;
+        }
+
+        video {
+            width: 100%;
+            max-width: 100vw;
+            height: auto;
+            border: 3px solid #fff;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+
+        #qr-result {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        canvas {
+            display: none;
+        }
+
+        /* 반응형 */
+        @media (min-width: 1024px) {
+            #start-camera {
+                margin-top: -100px; /* 데스크탑 환경에서는 더 위로 올림 */
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+                margin-bottom: 20px;
+            }
+
+            #start-camera {
+                font-size: 1.4rem;
+                padding: 12px 18px;
+                margin-top: -20px; /* 모바일에서는 조금만 조정 */
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>QUESS</h1>
+<button id="start-camera">QR 스캔하기</button>
+
+<div id="camera-container">
+    <video id="camera-preview"></video>
+    <p id="qr-result">QR 코드를 화면에 인식해주세요</p>
+    <canvas id="qr-canvas"></canvas>
+</div>
+
+<!-- JSQR 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr"></script>
+
+<script>
+    const startCameraButton = document.getElementById("start-camera");
+    const cameraContainer = document.getElementById("camera-container");
+    const video = document.getElementById("camera-preview");
+    const qrResult = document.getElementById("qr-result");
+    const canvasElement = document.getElementById("qr-canvas");
+    const canvas = canvasElement.getContext("2d");
+
+    let stream;
+
+    startCameraButton.addEventListener("click", async () => {
+        try {
+            console.log("📸 카메라 활성화 버튼 클릭됨");
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+            });
+
+            console.log("✅ 카메라 스트림 활성화됨");
+
+            video.srcObject = stream;
+            video.setAttribute("playsinline", true);
+            video.play();
+            cameraContainer.style.display = "block";
+
+            startQRScanner();
+        } catch (err) {
+            console.error("❌ 카메라 접근 오류:", err);
+        }
+    });
+
+    function drawLine(begin, end, color) {
+        canvas.beginPath();
+        canvas.moveTo(begin.x, begin.y);
+        canvas.lineTo(end.x, end.y);
+        canvas.lineWidth = 4;
+        canvas.strokeStyle = color;
+        canvas.stroke();
+    }
+
+    function startQRScanner() {
+        console.log("🔎 QR 코드 스캔 시작");
+
+        function scan() {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                console.log("📷 카메라 영상 정상 로드됨");
+
+                canvasElement.width = video.videoWidth;
+                canvasElement.height = video.videoHeight;
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                console.log("🖼️ 이미지 데이터 캡처됨", imageData);
+
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "attemptBoth",
+                });
+
+                if (code) {
+                    console.log("✅ QR 코드 감지됨:", code.data);
+                    qrResult.innerText = `QR 코드 감지됨: ${code.data}`;
+                    sendQRDataToServer(code.data);
+
+                    // 감지된 QR 코드의 테두리 그리기
+                    drawLine(code.location.topLeftCorner, code.location.topRightCorner, "#FF0000");
+                    drawLine(code.location.topRightCorner, code.location.bottomRightCorner, "#FF0000");
+                    drawLine(code.location.bottomRightCorner, code.location.bottomLeftCorner, "#FF0000");
+                    drawLine(code.location.bottomLeftCorner, code.location.topLeftCorner, "#FF0000");
+
+                    stream.getTracks().forEach(track => track.stop()); // 카메라 정지
+                } else {
+                    console.log("❌ QR 코드 감지 실패 (계속 스캔 중)");
+                    requestAnimationFrame(scan);
+                }
+            } else {
+                console.log("🚫 카메라 영상이 로드되지 않음");
+            }
+        }
+
+        requestAnimationFrame(scan);
+    }
+
+    function sendQRDataToServer(qrData) {
+        console.log("📡 서버로 QR 코드 데이터 전송:", qrData);
+
+        window.location.href = `/scan-qr-url?scanUrl=${encodeURIComponent(qrData)}`;
+    }
+</script>
+
+</body>
+</html>
+
