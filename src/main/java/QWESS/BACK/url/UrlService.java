@@ -34,7 +34,7 @@ public class UrlService {
     }
 
     public Map<String, Object> mlServer(String url) {
-        String flaskUrl = "http://52.78.98.235:8888/predict";
+        String flaskUrl = "http://43.201.36.76:8888/predict";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Content-Type", "application/json");
@@ -63,7 +63,7 @@ public class UrlService {
     }
 
     public String mlServerTest() {
-        String flaskUrl = "http://52.78.98.235:8888/testpage";
+        String flaskUrl = "http://43.201.36.76:8888/testpage";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Content-Type", "application/json");

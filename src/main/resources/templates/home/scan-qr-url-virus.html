@@ -26,9 +26,7 @@
 
 <div class="container">
     <p class="message" th:text="${message}"></p>
-    <p class="prediction" th:text="${prediction}"></p>
-    <p> 분석 정확도 : <a th:text="${probability}"></a></p>
-    <p>URL: <a th:href="${url.url}" th:text="${url.url}" target="_blank"></a></p>
+    <p>저장된 URL: <a th:href="${url.url}" th:text="${url.url}" target="_blank"></a></p>
 </div>
 
 </body>
